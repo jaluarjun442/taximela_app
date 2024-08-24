@@ -1,12 +1,33 @@
+// src/screens/LoginScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Loader from '../screens/Loader'; // Adjust path based on your folder structure
 
 export default function LoginScreen({ navigation }) {
     const [mobileNumber, setMobileNumber] = useState('9974920457');
     const [otp, setOtp] = useState('1234');
     const [isOtpSent, setIsOtpSent] = useState(false);
     const [isDisabled, setIsDisabled] = useState(false);
+    const [isSendingOtp, setIsSendingOtp] = useState(false);
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [countdown, setCountdown] = useState(30);
+    const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+
+    useEffect(() => {
+        const checkToken = async () => {
+            try {
+                const token = await AsyncStorage.getItem('token');
+                if (token) {
+                    navigation.replace('AppTabs');
+                }
+            } catch (error) {
+                console.error('Failed to retrieve token:', error);
+            }
+        };
+        checkToken();
+    }, []);
 
     useEffect(() => {
         let timer;
@@ -25,23 +46,69 @@ export default function LoginScreen({ navigation }) {
         return () => clearInterval(timer);
     }, [isDisabled]);
 
-    const handleSendOtp = () => {
+    const handleSendOtp = async () => {
         if (!mobileNumber) {
             Alert.alert('Error', 'Please enter your mobile number.');
             return;
         }
-        console.log('Sending OTP to:', mobileNumber);
-        setIsOtpSent(true);
-        setIsDisabled(true);
+        if (isDisabled) {
+            Alert.alert('Error', 'Please wait before requesting a new OTP.');
+            return;
+        }
+        setIsSendingOtp(true);
+        try {
+            const response = await fetch('https://clam-comic-noticeably.ngrok-free.app/taximela/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mobile: mobileNumber }),
+            });
+            const result = await response.json();
+            if (result.success) {
+                setIsOtpSent(true);
+                setIsDisabled(true); // Start the timer
+                setSuccessMessage('OTP has been sent successfully!');
+                setError('');
+            } else {
+                setSuccessMessage('');
+                setError(result.message || 'Failed to send OTP.');
+            }
+        } catch (error) {
+            console.error('Failed to send OTP:', error);
+            setSuccessMessage('');
+            setError('An error occurred while sending OTP.');
+        } finally {
+            setIsSendingOtp(false);
+        }
     };
 
-    const handleLogin = () => {
+    const handleLogin = async () => {
         if (!otp) {
             Alert.alert('Error', 'Please enter the OTP.');
             return;
         }
-        console.log('Verifying OTP:', otp);
-        navigation.replace('AppTabs');
+        setSuccessMessage('');
+        setError('');
+        setIsLoggingIn(true);
+        try {
+            const response = await fetch('https://clam-comic-noticeably.ngrok-free.app/taximela/api/login_verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mobile: mobileNumber, otp }),
+            });
+            const result = await response.json();
+            if (result.success) {
+                await AsyncStorage.setItem('token', result.data.token);
+                await AsyncStorage.setItem('is_profile_set', result.data.is_profile_set);
+                navigation.replace('AppTabs');
+            } else {
+                setError(result.message || 'Failed to login.');
+            }
+        } catch (error) {
+            console.error('Failed to login:', error);
+            setError('An error occurred while logging in.');
+        } finally {
+            setIsLoggingIn(false);
+        }
     };
 
     return (
@@ -58,12 +125,18 @@ export default function LoginScreen({ navigation }) {
                     editable={!isDisabled}
                 />
                 <TouchableOpacity
-                    style={[styles.button, isDisabled && styles.buttonDisabled]}
+                    style={[styles.button, (isSendingOtp || isDisabled) && styles.buttonDisabled]}
                     onPress={handleSendOtp}
-                    disabled={isDisabled}
+                    disabled={isSendingOtp || isDisabled}
                 >
                     <Text style={styles.buttonText}>Send OTP</Text>
                 </TouchableOpacity>
+                {successMessage ? (
+                    <Text style={styles.successText}>{successMessage}</Text>
+                ) : null}
+                {error ? (
+                    <Text style={styles.errorText}>{error}</Text>
+                ) : null}
                 {isDisabled && (
                     <Text style={styles.timerText}>
                         {`Resend OTP in ${countdown} seconds`}
@@ -79,12 +152,17 @@ export default function LoginScreen({ navigation }) {
                             value={otp}
                             onChangeText={setOtp}
                         />
-                        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                        <TouchableOpacity
+                            style={[styles.button, isLoggingIn && styles.buttonDisabled]}
+                            onPress={handleLogin}
+                            disabled={isLoggingIn}
+                        >
                             <Text style={styles.buttonText}>Login</Text>
                         </TouchableOpacity>
                     </>
                 )}
             </View>
+            <Loader visible={isSendingOtp || isLoggingIn} />
         </SafeAreaView>
     );
 }
@@ -143,5 +221,17 @@ const styles = StyleSheet.create({
         marginTop: 10,
         color: '#ff0000',
         fontSize: 14,
+    },
+    errorText: {
+        marginBottom: 10,
+        color: '#ff0000',
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    successText: {
+        marginBottom: 10,
+        color: '#28a745',
+        fontSize: 14,
+        textAlign: 'center',
     },
 });
