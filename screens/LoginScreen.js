@@ -1,22 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
 
 export default function LoginScreen({ navigation }) {
     const [mobileNumber, setMobileNumber] = useState('9974920457');
-    const [password, setPassword] = useState('9974920457');
+    const [otp, setOtp] = useState('1234');
+    const [isOtpSent, setIsOtpSent] = useState(false);
+    const [isDisabled, setIsDisabled] = useState(false);
+    const [countdown, setCountdown] = useState(30);
 
-    const handleLogin = () => {
-        // Basic validation
-        if (!mobileNumber || !password) {
-            Alert.alert('Error', 'Please enter both mobile number and password.');
+    useEffect(() => {
+        let timer;
+        if (isDisabled) {
+            timer = setInterval(() => {
+                setCountdown((prevCountdown) => {
+                    if (prevCountdown <= 1) {
+                        clearInterval(timer);
+                        setIsDisabled(false);
+                        return 30;
+                    }
+                    return prevCountdown - 1;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [isDisabled]);
+
+    const handleSendOtp = () => {
+        if (!mobileNumber) {
+            Alert.alert('Error', 'Please enter your mobile number.');
             return;
         }
+        console.log('Sending OTP to:', mobileNumber);
+        setIsOtpSent(true);
+        setIsDisabled(true);
+    };
 
-        // Log mobile number and password to console
-        console.log('Mobile Number:', mobileNumber);
-        console.log('Password:', password);
-
-        // Navigate to the next screen
+    const handleLogin = () => {
+        if (!otp) {
+            Alert.alert('Error', 'Please enter the OTP.');
+            return;
+        }
+        console.log('Verifying OTP:', otp);
         navigation.replace('AppTabs');
     };
 
@@ -31,22 +55,35 @@ export default function LoginScreen({ navigation }) {
                     maxLength={10}
                     value={mobileNumber}
                     onChangeText={setMobileNumber}
+                    editable={!isDisabled}
                 />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                />
-            </View>
-            <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                    <Text style={styles.buttonText}>Login</Text>
+                <TouchableOpacity
+                    style={[styles.button, isDisabled && styles.buttonDisabled]}
+                    onPress={handleSendOtp}
+                    disabled={isDisabled}
+                >
+                    <Text style={styles.buttonText}>Send OTP</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Register')}>
-                    <Text style={styles.buttonText}>Register</Text>
-                </TouchableOpacity>
+                {isDisabled && (
+                    <Text style={styles.timerText}>
+                        {`Resend OTP in ${countdown} seconds`}
+                    </Text>
+                )}
+                {isOtpSent && (
+                    <>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Enter OTP"
+                            keyboardType="numeric"
+                            maxLength={6}
+                            value={otp}
+                            onChangeText={setOtp}
+                        />
+                        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                            <Text style={styles.buttonText}>Login</Text>
+                        </TouchableOpacity>
+                    </>
+                )}
             </View>
         </SafeAreaView>
     );
@@ -55,10 +92,10 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'flex-start', // Align items to the top
+        justifyContent: 'flex-start',
         alignItems: 'center',
         padding: 16,
-        backgroundColor: '#f9f9f9', // Background color for better contrast
+        backgroundColor: '#f9f9f9',
     },
     title: {
         fontSize: 24,
@@ -74,33 +111,37 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     input: {
-        width: '100%', // Full width input
+        width: '100%',
         padding: 10,
         borderWidth: 1,
         borderColor: '#ddd',
         borderRadius: 5,
-        marginBottom: 10, // Margin between input fields
+        marginBottom: 10,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1, // Subtle shadow effect
+        shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 1,
-        backgroundColor: '#fff', // Input background color for better readability
-    },
-    buttonContainer: {
-        width: '100%',
-        alignItems: 'center',
+        backgroundColor: '#fff',
     },
     button: {
         backgroundColor: '#007BFF',
         padding: 10,
         borderRadius: 5,
-        width: '100%', // Full width button
+        width: '100%',
         alignItems: 'center',
         marginVertical: 10,
+    },
+    buttonDisabled: {
+        backgroundColor: '#ccc',
     },
     buttonText: {
         color: '#fff',
         fontSize: 16,
+    },
+    timerText: {
+        marginTop: 10,
+        color: '#ff0000',
+        fontSize: 14,
     },
 });

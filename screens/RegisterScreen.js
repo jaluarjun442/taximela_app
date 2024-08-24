@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
 
 export default function RegisterScreen({ navigation }) {
+    const [email, setEmail] = useState('jaluarjun442@gmail.com');
     const [mobileNumber, setMobileNumber] = useState('9974920457');
     const [password, setPassword] = useState('9974920457');
     const [name, setName] = useState('Arjun');
@@ -42,6 +43,13 @@ export default function RegisterScreen({ navigation }) {
                 onChangeText={setBusinessName}
             />
             <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Enter your email"
+                    value={email}
+                    onChangeText={setEmail}
+                />
                 <Text style={styles.label}>Mobile Number</Text>
                 <TextInput
                     style={styles.input}
